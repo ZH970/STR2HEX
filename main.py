@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 STR2ASCII - 字符串转 ASCII 十六进制码工具 (tkinter 桌面版)
-输入：左侧文本框 4 位 ID（格式：大写字母 F/G/H/I + 三位数字，如 F001）
-输出：右侧文本框 ASCII 十六进制码（如 46 30 30 31）
-记录：每次转换追加写入本地 conversion_log.csv，重复 ID 警告且不重复写入
+
+功能：
+    输入：左侧文本框 4 位 ID（格式：大写字母 F/G/H/I + 三位数字，如 F001）
+    输出：右侧文本框 ASCII 十六进制码（如 46 30 30 31）
+    记录：每次转换追加写入本地 conversion_log.csv，重复 ID 警告且不重复写入
+
+作者：zhanghao
 """
 import csv
 import os
