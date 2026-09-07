@@ -148,7 +148,7 @@ class Str2AsciiApp:
         self.root = root
         root.title("STR2ASCII - 字符串转 ASCII 十六进制码")
         root.geometry("860x620")
-        root.resizable(False, False)
+        root.minsize(860, 620)
         root.configure(bg="#f0f4f8")
 
         self._build_ui()
@@ -167,12 +167,63 @@ class Str2AsciiApp:
 
         subtitle = tk.Label(
             self.root,
-            text="输入 4 位 ID（大写 F/G/H/I + 三位数字），自动记录转换历史，重复 ID 会警告",
+            text="输入 4 位 ID（大写 F/G/H/I + 三位数字），输入满即自动转换并记录历史",
             font=("Microsoft YaHei", 10),
             bg="#f0f4f8",
             fg="#64748b"
         )
         subtitle.pack(pady=(0, 14))
+
+        # 设备 ID 解锁命令（左上角固定显示，方便复制）
+        unlock_frame = tk.Frame(self.root, bg="#f0f4f8")
+        unlock_frame.pack(padx=24, fill="x", pady=(0, 10))
+        
+        unlock_left = tk.Frame(unlock_frame, bg="#f0f4f8")
+        unlock_left.pack(side="left", padx=8, pady=6)
+        
+        tk.Label(
+            unlock_left, text="设备 ID 解锁命令",
+            font=("Microsoft YaHei", 9, "bold"), bg="#f0f4f8", fg="#334155"
+        ).pack(side="left")
+        
+        self.unlock_cmd = "45 0E 43 4D 44 49"
+        self.unlock_cmd_var = tk.StringVar(value=self.unlock_cmd)
+        self.unlock_entry = tk.Entry(
+            unlock_left, textvariable=self.unlock_cmd_var,
+            font=("Consolas", 10, "bold"), width=18,
+            state="readonly"
+        )
+        self.unlock_entry.pack(side="left", padx=8)
+        
+        tk.Button(
+            unlock_left, text="复制",
+            font=("Microsoft YaHei", 9),
+            bg="#e2e8f0", fg="#475569", activebackground="#cbd5e1",
+            relief="flat", cursor="hand2",
+            padx=8, pady=2, command=self._copy_unlock_cmd
+        ).pack(side="left")
+
+        tk.Label(
+            unlock_left, text="设备 ID 查询命令",
+            font=("Microsoft YaHei", 9, "bold"), bg="#f0f4f8", fg="#334155"
+        ).pack(side="left", padx=(160, 0))
+        
+        self.query_cmd = "F0 01"
+        self.query_cmd_var = tk.StringVar(value=self.query_cmd)
+        self.query_entry = tk.Entry(
+            unlock_left, textvariable=self.query_cmd_var,
+            font=("Consolas", 10, "bold"), width=15,
+            state="readonly"
+        )
+        self.query_entry.pack(side="left", padx=8)
+
+        tk.Button(
+            unlock_left, text="复制",
+            font=("Microsoft YaHei", 9),
+            bg="#e2e8f0", fg="#475569", activebackground="#cbd5e1",
+            relief="flat", cursor="hand2",
+            padx=8, pady=2, command=self._copy_query_cmd
+        ).pack(side="left")
 
         # 主区域：左右两个文本框
         main = tk.Frame(self.root, bg="#f0f4f8")
@@ -221,6 +272,12 @@ class Str2AsciiApp:
             right_label, text="ASCII 十六进制码",
             font=("Microsoft YaHei", 11, "bold"), bg="#f0f4f8", fg="#334155"
         ).pack(side="left")
+        self.prefix_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(
+            right_label, text="前缀 85 07",
+            font=("Microsoft YaHei", 9), bg="#f0f4f8", fg="#64748b",
+            variable=self.prefix_var
+        ).pack(side="left", padx=8)
 
         self.output_text = tk.Text(
             right, width=24, height=4,
@@ -270,10 +327,10 @@ class Str2AsciiApp:
 
         # 历史记录（可滚动列表）
         hist_frame = tk.Frame(self.root, bg="#f0f4f8")
-        hist_frame.pack(fill="both", expand=True, padx=24, pady=(0, 16))
+        hist_frame.pack(fill="both", expand=True, padx=24, pady=(0, 15))
 
         tk.Label(
-            hist_frame, text="转换历史 (最近 10 条)",
+            hist_frame, text="转换历史",
             font=("Microsoft YaHei", 10, "bold"), bg="#f0f4f8", fg="#334155"
         ).pack(anchor="w", pady=(0, 4))
 
@@ -281,16 +338,17 @@ class Str2AsciiApp:
         hist_box_frame = tk.Frame(hist_frame, bg="#f0f4f8")
         hist_box_frame.pack(fill="both", expand=True)
 
-        scrollbar = tk.Scrollbar(hist_box_frame, orient="vertical")
-        scrollbar.pack(side="right", fill="y")
-
         self.history_list = tk.Listbox(
             hist_box_frame, height=8,
             font=("Consolas", 10), relief="solid", bd=1,
-            selectbackground="#bfdbfe",
-            yscrollcommand=scrollbar.set
+            selectbackground="#bfdbfe"
         )
         self.history_list.pack(side="left", fill="both", expand=True)
+
+        scrollbar = tk.Scrollbar(hist_box_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+        
+        self.history_list.config(yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.history_list.yview)
 
         # 绑定快捷键：Enter 转换，Ctrl+C 复制
@@ -314,12 +372,16 @@ class Str2AsciiApp:
         if existing and new_char in ("F", "G", "H", "I"):
             self.input_text.delete("1.0", "end")
 
-        # 限制 4 位（用 after 保证在字符插入后执行截断）
+        # 限制 4 位，解除注释后符合格式则自动转换（用 after 保证在字符插入后执行截断）
         def _trim():
             current = self.input_text.get("1.0", "end-1c")
             if len(current) > 4:
                 self.input_text.delete("1.0", "end")
                 self.input_text.insert("1.0", current[:4])
+            # # 输入满 4 位且符合格式时自动转换
+            # val = self.input_text.get("1.0", "end-1c")
+            # if len(val) == 4 and ID_PATTERN.match(val):
+            #     self._on_convert()
         self.input_text.after_idle(_trim)
 
     def _on_convert(self):
@@ -330,7 +392,8 @@ class Str2AsciiApp:
         self.output_text.config(state="normal")
         self.output_text.delete("1.0", "end")
         if success:
-            self.output_text.insert("1.0", result)
+            display = ("85 07 " + result) if self.prefix_var.get() else result
+            self.output_text.insert("1.0", display)
             self.output_text.config(fg="#16a34a")
         else:
             self.output_text.insert("1.0", "")
@@ -361,6 +424,18 @@ class Str2AsciiApp:
         self.root.clipboard_append(result)
         self._set_status("[成功] 已复制到剪贴板", "#16a34a")
 
+    def _copy_unlock_cmd(self):
+        """复制设备 ID 解锁命令到剪贴板"""
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.unlock_cmd)
+        self._set_status("[成功] 已复制解锁命令: " + self.unlock_cmd, "#16a34a")
+
+    def _copy_query_cmd(self):
+        """复制设备 ID 查询命令到剪贴板"""
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.query_cmd)
+        self._set_status("[成功] 已复制查询命令: " + self.query_cmd, "#16a34a")
+
     def _on_clear_history(self):
         if not os.path.exists(LOG_FILE):
             self._set_status("历史记录为空", "#64748b")
@@ -383,18 +458,19 @@ class Str2AsciiApp:
         self.status_label.config(fg=color)
 
     def _load_history_to_list(self):
-        """从 CSV 读取最近 10 条记录显示"""
+        """从 CSV 读取最近 50 条记录显示"""
         self.history_list.delete(0, "end")
         if not os.path.exists(LOG_FILE):
             return
         try:
             with open(LOG_FILE, "r", encoding="utf-8-sig", newline="") as f:
                 rows = list(csv.DictReader(f))
-            for row in rows[-10:]:
+            for row in rows[-50:]:
                 self.history_list.insert(
                     "end",
                     f"{row.get('id',''):<6}  {row.get('hex_code',''):<14}  {row.get('timestamp','')}"
                 )
+            self.history_list.see("end")
         except CsvFileInUseError as e:
             self._set_status("✘ " + str(e), "#dc2626")
             messagebox.showwarning("文件占用", str(e))
