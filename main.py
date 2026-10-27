@@ -212,7 +212,7 @@ class Str2AsciiApp:
             font=("Microsoft YaHei", 9, "bold"), bg="#f0f4f8", fg="#334155"
         ).pack(side="left", padx=(160, 0))
         
-        self.query_cmd = "F0 01"
+        self.query_cmd = "F1 01"
         self.query_cmd_var = tk.StringVar(value=self.query_cmd)
         self.query_entry = tk.Entry(
             unlock_left, textvariable=self.query_cmd_var,
@@ -276,7 +276,7 @@ class Str2AsciiApp:
             right_label, text="ASCII 十六进制码",
             font=("Microsoft YaHei", 11, "bold"), bg="#f0f4f8", fg="#334155"
         ).pack(side="left")
-        self.prefix_var = tk.BooleanVar(value=False)
+        self.prefix_var = tk.BooleanVar(value=True)
         tk.Checkbutton(
             right_label, text="前缀 85 07",
             font=("Microsoft YaHei", 9), bg="#f0f4f8", fg="#64748b",
